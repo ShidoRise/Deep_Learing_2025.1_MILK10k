@@ -18,18 +18,22 @@ from config import *
 class MILK10kDataset(Dataset):
     """MILK10k Dataset for multi-label skin lesion classification"""
     
-    def __init__(self, df, transform=None, fusion_strategy='early', use_metadata=True):
+    def __init__(self, df, image_dir=None, transform=None, fusion_strategy='early', use_metadata=True, is_test=False):
         """
         Args:
-            df: DataFrame with image paths and labels
+            df: DataFrame with image paths and labels (or just lesion_id for test)
+            image_dir: Directory containing test images (for test mode)
             transform: Albumentations transform
             fusion_strategy: 'early', 'late', or 'feature'
             use_metadata: Whether to include clinical metadata
+            is_test: Whether this is test data (no labels)
         """
         self.df = df.reset_index(drop=True)
+        self.image_dir = Path(image_dir) if image_dir else None
         self.transform = transform
         self.fusion_strategy = fusion_strategy
         self.use_metadata = use_metadata
+        self.is_test = is_test
         
         # Prepare metadata columns
         if self.use_metadata:
@@ -45,8 +49,22 @@ class MILK10kDataset(Dataset):
         row = self.df.iloc[idx]
         
         # Load images
-        clinical_img = self._load_image(row['clinical_image_path'])
-        dermoscopic_img = self._load_image(row['dermoscopic_image_path'])
+        if self.is_test and self.image_dir:
+            # Test mode: construct paths from lesion_id
+            lesion_id = row['lesion_id']
+            lesion_dir = self.image_dir / lesion_id
+            
+            # Find clinical and dermoscopic images
+            image_files = sorted(list(lesion_dir.glob('*.jpg')))
+            if len(image_files) < 2:
+                raise ValueError(f"Expected 2 images for lesion {lesion_id}, found {len(image_files)}")
+            
+            clinical_img = self._load_image(str(image_files[0]))
+            dermoscopic_img = self._load_image(str(image_files[1]))
+        else:
+            # Training/validation mode: use paths from dataframe
+            clinical_img = self._load_image(row['clinical_image_path'])
+            dermoscopic_img = self._load_image(row['dermoscopic_image_path'])
         
         # Apply transforms
         if self.transform:
@@ -64,17 +82,24 @@ class MILK10kDataset(Dataset):
             # For feature-level fusion, return both images
             image = (clinical_img, dermoscopic_img)
         
-        # Get labels
-        labels = torch.tensor(
-            row[DIAGNOSIS_CATEGORIES].values.astype(np.float32)
-        )
+        # Get labels (not available for test data)
+        if not self.is_test:
+            labels = torch.tensor(
+                row[DIAGNOSIS_CATEGORIES].values.astype(np.float32)
+            )
         
         # Get metadata if required
         if self.use_metadata:
             metadata = self._process_metadata(row)
-            return image, labels, metadata
+            if self.is_test:
+                return image, metadata  # No labels for test
+            else:
+                return image, labels, metadata
         else:
-            return image, labels
+            if self.is_test:
+                return image  # Only image for test
+            else:
+                return image, labels
     
     def _load_image(self, image_path):
         """Load and preprocess image"""
@@ -88,26 +113,33 @@ class MILK10kDataset(Dataset):
         
         # Process categorical features
         if 'sex' in self.metadata_cols:
-            sex_map = {'male': 0, 'female': 1}
-            metadata_dict['sex'] = sex_map.get(row['sex'], -1)
+            sex_map = {'male': 0, 'female': 1, 'unknown': -1}
+            metadata_dict['sex'] = sex_map.get(str(row['sex']).lower(), -1)
         
-        if 'site' in self.metadata_cols:
+        # Handle both 'site' and 'anatom_site_general' column names
+        site_col = 'anatom_site_general' if 'anatom_site_general' in row else 'site'
+        if site_col in self.metadata_cols or 'anatom_site_general' in self.metadata_cols:
             site_map = {
                 'head_neck_face': 0,
                 'upper_extremity': 1,
                 'lower_extremity': 2,
                 'trunk': 3,
                 'palms_soles': 4,
-                'oral_genital': 5
+                'oral_genital': 5,
+                'unknown': -1
             }
-            metadata_dict['site'] = site_map.get(row['site'], -1)
+            site_value = str(row.get(site_col, 'unknown')).lower() if site_col in row else 'unknown'
+            metadata_dict['site'] = site_map.get(site_value, -1)
         
         # Process numerical features
-        if 'age_approx' in self.metadata_cols:
-            metadata_dict['age'] = row['age_approx'] / 100.0  # Normalize
+        if 'age_approx' in self.metadata_cols or 'age_approx' in row:
+            age = row.get('age_approx', 50.0)
+            metadata_dict['age'] = float(age) / 100.0 if not pd.isna(age) else 0.5  # Normalize
         
-        if 'skin_tone_class' in self.metadata_cols:
-            metadata_dict['skin_tone'] = row['skin_tone_class'] / 5.0  # Normalize
+        # Handle both 'skin_tone' and 'skin_tone_class'
+        if 'skin_tone' in self.metadata_cols or 'skin_tone_class' in row or 'skin_tone' in row:
+            skin_tone = row.get('skin_tone', row.get('skin_tone_class', 3.0))
+            metadata_dict['skin_tone'] = float(skin_tone) / 5.0 if not pd.isna(skin_tone) else 0.6  # Normalize
         
         # Process MONET scores (already normalized 0-1)
         for col in self.metadata_cols:

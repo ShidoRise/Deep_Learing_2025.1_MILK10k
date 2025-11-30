@@ -217,7 +217,7 @@ def create_submission(predictions, test_df, output_path, threshold=0.5):
     
     Args:
         predictions: numpy array of shape (n_samples, n_classes)
-        test_df: DataFrame with test data (must have isic_id column)
+        test_df: DataFrame with test data (must have lesion_id column)
         output_path: Path to save submission file
         threshold: Threshold for binary classification
     """
@@ -225,8 +225,9 @@ def create_submission(predictions, test_df, output_path, threshold=0.5):
     binary_predictions = (predictions >= threshold).astype(int)
     
     # Create submission DataFrame
+    # Use lesion_id as identifier (each lesion has 2 images but 1 prediction)
     submission = pd.DataFrame({
-        'isic_id': test_df['isic_id'].values
+        'lesion_id': test_df['lesion_id'].values
     })
     
     # Add predictions for each category

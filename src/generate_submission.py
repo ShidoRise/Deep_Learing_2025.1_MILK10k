@@ -47,19 +47,45 @@ def prepare_test_data():
     else:
         # Load test metadata
         test_metadata = pd.read_csv(test_metadata_path)
-        print(f"Loaded test metadata: {len(test_metadata):,} samples")
+        print(f"Loaded test metadata: {len(test_metadata):,} rows (958 images from 479 lesions)")
+        
+        # Rename 'site' to 'anatom_site_general' to match training data format
+        if 'site' in test_metadata.columns and 'anatom_site_general' not in test_metadata.columns:
+            test_metadata['anatom_site_general'] = test_metadata['site']
+        
+        # Group by lesion_id to get one row per lesion (we have 2 images per lesion)
+        # Keep the lesion_id as the identifier
+        lesion_data = []
+        for lesion_id, group in test_metadata.groupby('lesion_id'):
+            # Get first row as base (metadata is same for both images of same lesion)
+            row = group.iloc[0].copy()
+            row['lesion_id'] = lesion_id
+            lesion_data.append(row)
+        
+        test_df = pd.DataFrame(lesion_data)
+        print(f"Unique lesions: {len(test_df):,}")
         
         # Ensure required columns exist
-        required_cols = ['isic_id', 'age_approx', 'sex', 'anatom_site_general']
+        required_cols = ['age_approx', 'sex', 'anatom_site_general']
         
         for col in required_cols:
-            if col not in test_metadata.columns:
+            if col not in test_df.columns:
                 if col == 'age_approx':
-                    test_metadata[col] = 50.0
+                    test_df[col] = 50.0
                 else:
-                    test_metadata[col] = 'unknown'
+                    test_df[col] = 'unknown'
         
-        test_df = test_metadata
+        # Fill NaN values (avoid FutureWarning)
+        test_df = test_df.copy()
+        test_df['age_approx'] = test_df['age_approx'].fillna(50.0)
+        test_df['sex'] = test_df['sex'].fillna('unknown')
+        test_df['anatom_site_general'] = test_df['anatom_site_general'].fillna('unknown')
+        
+        # Add skin_tone if exists
+        if 'skin_tone_class' in test_df.columns:
+            test_df['skin_tone'] = test_df['skin_tone_class']
+        else:
+            test_df['skin_tone'] = 3.0  # Default mid-tone
     
     # Save processed test data
     output_path = PREPROCESSED_DIR / 'test_data.csv'
