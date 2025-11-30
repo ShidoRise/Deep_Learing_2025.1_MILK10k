@@ -1,0 +1,129 @@
+# ===================================================================
+# MILK10k Project - Git Ignore
+# ===================================================================
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv/
+env/
+ENV/
+.venv
+
+# Jupyter Notebook
+.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyCharm
+.idea/
+
+# VS Code
+.vscode/
+
+# ===================================================================
+# Project Specific
+# ===================================================================
+
+# Dataset (large files)
+dataset/MILK10k_Training_Input/
+dataset/MILK10k_Test_Input/
+*.jpg
+*.jpeg
+*.png
+*.tiff
+
+# Keep CSV files but ignore images
+!dataset/*.csv
+
+# Preprocessed data (can be regenerated)
+preprocessed_data/
+!preprocessed_data/.gitkeep
+
+# Model checkpoints (very large files)
+models/*.pth
+models/*.pt
+models/*.ckpt
+models/*.h5
+!models/.gitkeep
+
+# Training logs
+logs/
+runs/
+!logs/.gitkeep
+
+# Results
+results/
+!results/.gitkeep
+
+# TensorBoard
+events.out.tfevents.*
+
+# Weights & Biases
+wandb/
+
+# ===================================================================
+# OS Specific
+# ===================================================================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+
+# ===================================================================
+# Temporary Files
+# ===================================================================
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+*.swp
+*.swo
+*~
+
+# Test files
+test_output/
+temp/
+tmp/
+
+# ===================================================================
+# Data Files (optional - uncomment if needed)
+# ===================================================================
+
+# Uncomment if you want to ignore all CSV files:
+# *.csv
+
+# Uncomment if you want to ignore specific directories:
+# data/
+# outputs/
