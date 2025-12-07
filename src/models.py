@@ -13,8 +13,6 @@ from config import *
 
 
 class SkinLesionClassifier(nn.Module):
-    """Multi-label skin lesion classifier with dual-image input"""
-    
     def __init__(
         self,
         architecture='efficientnet_b3',
@@ -31,9 +29,7 @@ class SkinLesionClassifier(nn.Module):
         self.use_metadata = use_metadata
         self.num_classes = num_classes
         
-        # Create backbone
         if fusion_strategy == 'early':
-            # Modify first conv layer to accept 6 channels (2 images x 3 RGB)
             self.backbone = timm.create_model(
                 architecture,
                 pretrained=pretrained,
@@ -42,7 +38,6 @@ class SkinLesionClassifier(nn.Module):
                 global_pool='avg'
             )
         else:
-            # Separate backbones for clinical and dermoscopic images
             self.clinical_backbone = timm.create_model(
                 architecture,
                 pretrained=pretrained,
@@ -56,13 +51,11 @@ class SkinLesionClassifier(nn.Module):
                 global_pool='avg'
             )
         
-        # Get feature dimension
         if fusion_strategy == 'early':
             feature_dim = self.backbone.num_features
         else:
             feature_dim = self.clinical_backbone.num_features * 2
         
-        # Metadata fusion
         if use_metadata:
             self.metadata_fc = nn.Sequential(
                 nn.Linear(metadata_dim, 128),
@@ -86,23 +79,14 @@ class SkinLesionClassifier(nn.Module):
         )
     
     def forward(self, images, metadata=None):
-        """
-        Args:
-            images: Tensor of shape [B, C, H, W] for early fusion
-                    or tuple of (clinical, dermoscopic) for late fusion
-            metadata: Optional tensor of shape [B, metadata_dim]
-        """
         if self.fusion_strategy == 'early':
-            # Early fusion: single backbone
             features = self.backbone(images)
         else:
-            # Late fusion: separate backbones
             clinical_img, dermoscopic_img = images
             clinical_features = self.clinical_backbone(clinical_img)
             dermoscopic_features = self.dermoscopic_backbone(dermoscopic_img)
             features = torch.cat([clinical_features, dermoscopic_features], dim=1)
         
-        # Add metadata features
         if self.use_metadata and metadata is not None:
             metadata_features = self.metadata_fc(metadata)
             features = torch.cat([features, metadata_features], dim=1)
@@ -114,8 +98,6 @@ class SkinLesionClassifier(nn.Module):
 
 
 class AttentionFusion(nn.Module):
-    """Attention-based fusion for dual-image input"""
-    
     def __init__(self, feature_dim):
         super(AttentionFusion, self).__init__()
         
@@ -127,18 +109,8 @@ class AttentionFusion(nn.Module):
         )
     
     def forward(self, clinical_features, dermoscopic_features):
-        """
-        Args:
-            clinical_features: [B, feature_dim]
-            dermoscopic_features: [B, feature_dim]
-        """
-        # Concatenate features
         combined = torch.cat([clinical_features, dermoscopic_features], dim=1)
-        
-        # Compute attention weights
-        attention_weights = self.attention(combined)  # [B, 2]
-        
-        # Apply attention
+        attention_weights = self.attention(combined)
         clinical_weight = attention_weights[:, 0:1]
         dermoscopic_weight = attention_weights[:, 1:2]
         
@@ -151,8 +123,6 @@ class AttentionFusion(nn.Module):
 
 
 class SkinLesionClassifierWithAttention(nn.Module):
-    """Skin lesion classifier with attention-based fusion"""
-    
     def __init__(
         self,
         architecture='efficientnet_b3',
@@ -166,7 +136,6 @@ class SkinLesionClassifierWithAttention(nn.Module):
         
         self.use_metadata = use_metadata
         
-        # Separate backbones
         self.clinical_backbone = timm.create_model(
             architecture,
             pretrained=pretrained,
@@ -182,10 +151,8 @@ class SkinLesionClassifierWithAttention(nn.Module):
         
         feature_dim = self.clinical_backbone.num_features
         
-        # Attention fusion
         self.attention_fusion = AttentionFusion(feature_dim)
         
-        # Metadata fusion
         if use_metadata:
             self.metadata_fc = nn.Sequential(
                 nn.Linear(metadata_dim, 128),
@@ -209,21 +176,13 @@ class SkinLesionClassifierWithAttention(nn.Module):
         )
     
     def forward(self, images, metadata=None):
-        """
-        Args:
-            images: tuple of (clinical, dermoscopic) images
-            metadata: Optional tensor of shape [B, metadata_dim]
-        """
         clinical_img, dermoscopic_img = images
         
-        # Extract features
         clinical_features = self.clinical_backbone(clinical_img)
         dermoscopic_features = self.dermoscopic_backbone(dermoscopic_img)
         
-        # Attention fusion
         features = self.attention_fusion(clinical_features, dermoscopic_features)
         
-        # Add metadata features
         if self.use_metadata and metadata is not None:
             metadata_features = self.metadata_fc(metadata)
             features = torch.cat([features, metadata_features], dim=1)
@@ -244,8 +203,6 @@ def create_model(
     metadata_dim=18,
     dropout=0.3
 ):
-    """Factory function to create model"""
-    
     if use_attention:
         model = SkinLesionClassifierWithAttention(
             architecture=architecture,

@@ -16,65 +16,38 @@ from config import DIAGNOSIS_CATEGORIES
 
 
 def compute_metrics(predictions, targets, threshold=0.5):
-    """
-    Compute evaluation metrics for multi-label classification
-    
-    Args:
-        predictions: Tensor or array of shape [N, num_classes] with probabilities
-        targets: Tensor or array of shape [N, num_classes] with binary labels
-        threshold: Classification threshold (default: 0.5)
-    
-    Returns:
-        Dictionary with computed metrics
-    """
-    # Convert to numpy if needed
     if isinstance(predictions, torch.Tensor):
         predictions = predictions.cpu().numpy()
     if isinstance(targets, torch.Tensor):
         targets = targets.cpu().numpy()
     
-    # Ensure targets are integers (0 or 1)
     targets = targets.astype(np.int32)
-    
-    # Binarize predictions
     pred_binary = (predictions >= threshold).astype(np.int32)
     
-    # Compute metrics
     metrics = {}
     
-    # Macro F1 (primary metric)
     metrics['macro_f1'] = f1_score(targets, pred_binary, average='macro', zero_division=0)
-    
-    # Micro F1
     metrics['micro_f1'] = f1_score(targets, pred_binary, average='micro', zero_division=0)
-    
-    # Weighted F1
     metrics['weighted_f1'] = f1_score(targets, pred_binary, average='weighted', zero_division=0)
     
-    # Per-class F1
     per_class_f1 = f1_score(targets, pred_binary, average=None, zero_division=0)
-    metrics['per_class_f1'] = per_class_f1  # Store as array for TensorBoard logging
+    metrics['per_class_f1'] = per_class_f1
     for i, category in enumerate(DIAGNOSIS_CATEGORIES):
         metrics[f'f1_{category}'] = per_class_f1[i]
     
-    # Precision and Recall
     metrics['macro_precision'] = precision_score(targets, pred_binary, average='macro', zero_division=0)
     metrics['macro_recall'] = recall_score(targets, pred_binary, average='macro', zero_division=0)
     
-    # AUC-ROC (using probabilities)
     try:
         metrics['macro_auc_roc'] = roc_auc_score(targets, predictions, average='macro')
         metrics['micro_auc_roc'] = roc_auc_score(targets, predictions, average='micro')
         
-        # Per-class AUC
         per_class_auc = roc_auc_score(targets, predictions, average=None)
         for i, category in enumerate(DIAGNOSIS_CATEGORIES):
             metrics[f'auc_{category}'] = per_class_auc[i]
     except ValueError:
-        # Handle case where some classes have no positive samples
         pass
     
-    # Average Precision
     try:
         metrics['macro_ap'] = average_precision_score(targets, predictions, average='macro')
     except ValueError:
@@ -84,12 +57,6 @@ def compute_metrics(predictions, targets, threshold=0.5):
 
 
 def compute_confusion_matrix(predictions, targets, threshold=0.5):
-    """
-    Compute confusion matrix for multi-label classification
-    
-    Returns:
-        Array of shape [num_classes, 2, 2]
-    """
     if isinstance(predictions, torch.Tensor):
         predictions = predictions.cpu().numpy()
     if isinstance(targets, torch.Tensor):
@@ -103,8 +70,6 @@ def compute_confusion_matrix(predictions, targets, threshold=0.5):
 
 
 class MetricsTracker:
-    """Track metrics during training"""
-    
     def __init__(self):
         self.reset()
     
@@ -113,23 +78,16 @@ class MetricsTracker:
         self.targets = []
     
     def update(self, predictions, targets):
-        """
-        Args:
-            predictions: Tensor [B, num_classes]
-            targets: Tensor [B, num_classes]
-        """
         self.predictions.append(predictions.detach().cpu())
         self.targets.append(targets.detach().cpu())
     
     def compute(self, threshold=0.5):
-        """Compute metrics for all accumulated predictions"""
         if not self.predictions:
             return {}
         
         predictions = torch.cat(self.predictions, dim=0)
         targets = torch.cat(self.targets, dim=0)
         
-        # Apply sigmoid to get probabilities
         predictions = torch.sigmoid(predictions)
         
         metrics = compute_metrics(predictions, targets, threshold)

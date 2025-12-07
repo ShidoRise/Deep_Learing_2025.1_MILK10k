@@ -10,12 +10,6 @@ from config import *
 
 
 def prepare_test_data():
-    """
-    Prepare test data CSV with metadata for inference
-    
-    This function creates a test data CSV similar to the training data format,
-    but for test samples. It includes lesion_id, image paths, and metadata features.
-    """
     print("Preparing test data...")
     
     # Load test metadata (assuming similar format to training metadata)
@@ -25,17 +19,14 @@ def prepare_test_data():
         print(f"Warning: {test_metadata_path} not found.")
         print("Creating test data from directory structure...")
         
-        # Get all test image directories
         test_dirs = sorted([d for d in TEST_INPUT_DIR.iterdir() if d.is_dir()])
         
-        # Create basic test DataFrame with lesion_id
         test_data = []
         for test_dir in test_dirs:
             lesion_id = test_dir.name
             if not lesion_id.startswith('IL_'):
-                continue  # Skip non-lesion directories
+                continue
             
-            # Find images in lesion directory
             image_files = sorted(list(test_dir.glob('*.jpg')))
             if len(image_files) < 2:
                 print(f"Warning: Lesion {lesion_id} has {len(image_files)} images, expected 2")
@@ -55,14 +46,11 @@ def prepare_test_data():
         print(f"Created test data with {len(test_df):,} samples (without metadata)")
     
     else:
-        # Load test metadata
         test_metadata = pd.read_csv(test_metadata_path)
         print(f"Loaded test metadata: {len(test_metadata):,} rows (958 images from 479 lesions)")
         
-        # Group by lesion_id and process each lesion
         lesion_data = []
         for lesion_id, group in test_metadata.groupby('lesion_id'):
-            # Separate clinical and dermoscopic images
             clinical_row = group[group['image_type'] == 'clinical: close-up']
             dermoscopic_row = group[group['image_type'] == 'dermoscopic']
             
@@ -73,11 +61,9 @@ def prepare_test_data():
             clinical_row = clinical_row.iloc[0]
             dermoscopic_row = dermoscopic_row.iloc[0]
             
-            # Build image paths
             clinical_path = str(TEST_INPUT_DIR / lesion_id / f"{clinical_row['isic_id']}.jpg")
             dermoscopic_path = str(TEST_INPUT_DIR / lesion_id / f"{dermoscopic_row['isic_id']}.jpg")
             
-            # Create lesion entry with properly prefixed MONET features
             lesion_entry = {
                 'lesion_id': lesion_id,
                 'clinical_image_path': clinical_path,
@@ -90,7 +76,6 @@ def prepare_test_data():
                 'skin_tone_class': clinical_row.get('skin_tone_class', 3.0),
             }
             
-            # Add MONET features with proper prefixes (to match training data format)
             monet_cols = [col for col in clinical_row.index if col.startswith('MONET_')]
             for col in monet_cols:
                 lesion_entry[f'clinical_{col}'] = clinical_row[col]
@@ -101,14 +86,12 @@ def prepare_test_data():
         test_df = pd.DataFrame(lesion_data)
         print(f"Unique lesions: {len(test_df):,}")
         
-        # Fill NaN values
         test_df = test_df.copy()
         test_df['age_approx'] = test_df['age_approx'].fillna(50.0)
         test_df['sex'] = test_df['sex'].fillna('unknown')
         test_df['site'] = test_df['site'].fillna('unknown')
         test_df['skin_tone_class'] = test_df['skin_tone_class'].fillna(3.0)
     
-    # Save processed test data
     output_path = PREPROCESSED_DIR / 'test_data.csv'
     output_path.parent.mkdir(parents=True, exist_ok=True)
     test_df.to_csv(output_path, index=False)
@@ -123,17 +106,9 @@ def prepare_test_data():
 
 
 def generate_submission(model_path=None, use_tta=False):
-    """
-    Generate submission file using trained model
-    
-    Args:
-        model_path: Path to trained model checkpoint (default: best_model.pth)
-        use_tta: Whether to use Test Time Augmentation
-    """
     from inference import Predictor, create_submission
     from utils import get_device
     
-    # Set default model path
     if model_path is None:
         model_path = MODELS_DIR / 'best_model.pth'
     
@@ -144,20 +119,16 @@ def generate_submission(model_path=None, use_tta=False):
         print("Please train a model first or specify a valid model path.")
         return
     
-    # Prepare test data
     test_df = prepare_test_data()
     
-    # Get device
     device = get_device()
     
-    # Create predictor
     print("\nLoading model for inference...")
     predictor = Predictor(
         model_path=model_path,
         device=device
     )
     
-    # Generate predictions
     if use_tta:
         print("\nGenerating predictions with TTA...")
         predictions = predictor.predict_with_tta(
@@ -176,7 +147,6 @@ def generate_submission(model_path=None, use_tta=False):
         )
         output_filename = 'submission.csv'
     
-    # Create submission
     output_path = RESULTS_DIR / output_filename
     submission = create_submission(
         predictions=predictions,
@@ -192,7 +162,6 @@ def generate_submission(model_path=None, use_tta=False):
 
 
 def main():
-    """Main function"""
     import argparse
     
     parser = argparse.ArgumentParser(description='Generate submission for MILK10k')

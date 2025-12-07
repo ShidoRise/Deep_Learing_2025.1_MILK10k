@@ -13,7 +13,6 @@ from datetime import datetime
 
 
 def set_seed(seed=42):
-    """Set random seed for reproducibility"""
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -23,13 +22,11 @@ def set_seed(seed=42):
 
 
 def create_directories(dirs):
-    """Create directories if they don't exist"""
     for dir_path in dirs:
         Path(dir_path).mkdir(parents=True, exist_ok=True)
 
 
 def get_device():
-    """Get available device (GPU or CPU)"""
     if torch.cuda.is_available():
         device = torch.device('cuda')
         print(f"Using GPU: {torch.cuda.get_device_name(0)}")
@@ -40,7 +37,6 @@ def get_device():
 
 
 def count_parameters(model):
-    """Count total and trainable parameters in a model"""
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     print(f"Total parameters: {total_params:,}")
@@ -49,18 +45,6 @@ def count_parameters(model):
 
 
 def save_checkpoint(model, optimizer, epoch, metrics, checkpoint_dir, filename='checkpoint.pth', scheduler=None):
-    """Save model checkpoint
-    
-    Args:
-        model: PyTorch model
-        optimizer: Optimizer
-        epoch: Current epoch number
-        metrics: Metrics value (e.g., F1 score)
-        checkpoint_dir: Directory to save checkpoint
-        filename: Checkpoint filename (default: 'checkpoint.pth')
-        scheduler: Optional learning rate scheduler
-    """
-    # Ensure checkpoint directory exists
     Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
     
     filepath = Path(checkpoint_dir) / filename
@@ -78,18 +62,6 @@ def save_checkpoint(model, optimizer, epoch, metrics, checkpoint_dir, filename='
 
 
 def load_checkpoint(model, optimizer=None, filepath=None, device='cuda', scheduler=None):
-    """Load model checkpoint
-    
-    Args:
-        model: PyTorch model to load weights into
-        optimizer: Optional optimizer to load state
-        filepath: Path to checkpoint file
-        device: Device to load checkpoint to
-        scheduler: Optional scheduler to load state
-    
-    Returns:
-        tuple: (epoch, metrics)
-    """
     checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     
@@ -107,10 +79,8 @@ def load_checkpoint(model, optimizer=None, filepath=None, device='cuda', schedul
 
 
 def plot_training_history(history, save_path=None):
-    """Plot training history (loss and metrics)"""
     fig, axes = plt.subplots(1, 2, figsize=(15, 5))
     
-    # Plot loss
     axes[0].plot(history['train_loss'], label='Train Loss')
     axes[0].plot(history['val_loss'], label='Val Loss')
     axes[0].set_xlabel('Epoch')
@@ -119,7 +89,6 @@ def plot_training_history(history, save_path=None):
     axes[0].legend()
     axes[0].grid(True)
     
-    # Plot F1 score
     axes[1].plot(history['train_f1'], label='Train F1')
     axes[1].plot(history['val_f1'], label='Val F1')
     axes[1].set_xlabel('Epoch')
@@ -138,7 +107,6 @@ def plot_training_history(history, save_path=None):
 
 
 def plot_confusion_matrix(cm, class_names, save_path=None):
-    """Plot confusion matrix"""
     fig, ax = plt.subplots(figsize=(12, 10))
     sns.heatmap(cm, annot=True, fmt='d', cmap='Blues', 
                 xticklabels=class_names, yticklabels=class_names, ax=ax)
@@ -156,11 +124,9 @@ def plot_confusion_matrix(cm, class_names, save_path=None):
 
 
 def plot_class_distribution(class_counts, class_names, save_path=None):
-    """Plot class distribution"""
     fig, ax = plt.subplots(figsize=(12, 6))
     bars = ax.bar(class_names, class_counts)
     
-    # Color bars based on count
     colors = plt.cm.viridis(np.linspace(0.3, 0.9, len(class_counts)))
     for bar, color in zip(bars, colors):
         bar.set_color(color)
@@ -170,7 +136,6 @@ def plot_class_distribution(class_counts, class_names, save_path=None):
     ax.set_title('Class Distribution in Training Set')
     ax.tick_params(axis='x', rotation=45)
     
-    # Add value labels on bars
     for bar in bars:
         height = bar.get_height()
         ax.text(bar.get_x() + bar.get_width()/2., height,
@@ -187,21 +152,18 @@ def plot_class_distribution(class_counts, class_names, save_path=None):
 
 
 def save_json(data, filepath):
-    """Save data as JSON"""
     with open(filepath, 'w') as f:
         json.dump(data, f, indent=4)
     print(f"JSON saved: {filepath}")
 
 
 def load_json(filepath):
-    """Load JSON file"""
     with open(filepath, 'r') as f:
         data = json.load(f)
     return data
 
 
 class AverageMeter:
-    """Computes and stores the average and current value"""
     def __init__(self):
         self.reset()
     
@@ -219,7 +181,6 @@ class AverageMeter:
 
 
 class EarlyStopping:
-    """Early stopping to stop training when validation metric doesn't improve"""
     def __init__(self, patience=10, mode='max', delta=0, verbose=True):
         self.patience = patience
         self.mode = mode
@@ -258,7 +219,6 @@ class EarlyStopping:
 
 
 def format_time(seconds):
-    """Format time in seconds to human readable format"""
     hours = int(seconds // 3600)
     minutes = int((seconds % 3600) // 60)
     secs = int(seconds % 60)

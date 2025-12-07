@@ -21,17 +21,8 @@ TRAIN_SUPPLEMENT_FILE = DATASET_DIR / "MILK10k_Training_Supplement.csv"
 
 # Diagnostic categories
 DIAGNOSIS_CATEGORIES = [
-    'AKIEC',  # Actinic keratosis / intraepidermal carcinoma
-    'BCC',    # Basal cell carcinoma
-    'BEN_OTH', # Other benign proliferations
-    'BKL',    # Benign keratinocytic lesion
-    'DF',     # Dermatofibroma
-    'INF',    # Inflammatory and infectious conditions
-    'MAL_OTH', # Other malignant proliferations
-    'MEL',    # Melanoma
-    'NV',     # Melanocytic nevus
-    'SCCKA',  # Squamous cell carcinoma / keratoacanthoma
-    'VASC'    # Vascular lesions and hemorrhage
+    'AKIEC', 'BCC', 'BEN_OTH', 'BKL', 'DF', 'INF',
+    'MAL_OTH', 'MEL', 'NV', 'SCCKA', 'VASC'
 ]
 
 # Image types
@@ -58,20 +49,20 @@ CLINICAL_FEATURES = [
 
 # Model configuration
 MODEL_CONFIG = {
-    'architecture': 'efficientnet_b3',  # or 'resnet50', 'vit_base_patch16_224'
+    'architecture': 'efficientnet_b3',
     'pretrained': True,
     'num_classes': 11,
     'dropout': 0.3,
-    'use_metadata': True,  # Whether to use clinical metadata
-    'metadata_dim': 18,  # Number of metadata features
+    'use_metadata': True,
+    'metadata_dim': 18,
 }
 
 # Image preprocessing
 IMAGE_CONFIG = {
-    'image_size': 384,  # 224, 384, or 512 (384 recommended for EfficientNet-B3)
-    'normalize_mean': [0.485, 0.456, 0.406],  # ImageNet mean
-    'normalize_std': [0.229, 0.224, 0.225],   # ImageNet std
-    'fusion_strategy': 'early',  # 'early', 'late', or 'feature'
+    'image_size': 384,
+    'normalize_mean': [0.485, 0.456, 0.406],
+    'normalize_std': [0.229, 0.224, 0.225],
+    'fusion_strategy': 'early',
 }
 
 # Training configuration
@@ -82,25 +73,25 @@ TRAIN_CONFIG = {
     'weight_decay': 1e-5,
     'min_lr': 1e-6,
     'optimizer': 'adamw',
-    'scheduler': 'cosine',  # 'cosine', 'reduce_on_plateau'
+    'scheduler': 'cosine',
     'warmup_epochs': 5,
     'early_stopping_patience': 15,
     'gradient_clip': 1.0,
-    'mixed_precision': True,  # Use AMP for faster training
+    'mixed_precision': True,
     'random_seed': 42,
     'num_workers': 4,
-    'save_every': 5,  # Save checkpoint every N epochs
+    'save_every': 5,
     'checkpoint_dir': str(MODELS_DIR),
     'log_dir': str(LOGS_DIR),
 }
 
 # Loss function
 LOSS_CONFIG = {
-    'type': 'bce_with_logits',  # Binary Cross Entropy for multi-label
+    'type': 'bce_with_logits',
     'use_focal_loss': True,
     'focal_alpha': 0.25,
     'focal_gamma': 2.0,
-    'use_class_weights': True,  # Weight by class frequency
+    'use_class_weights': True,
 }
 
 # Data split
@@ -108,7 +99,7 @@ DATA_SPLIT = {
     'train_ratio': 0.8,
     'val_ratio': 0.2,
     'random_seed': 42,
-    'stratify': True,  # Stratify by diagnosis categories
+    'stratify': True,
 }
 
 # Data augmentation
@@ -137,7 +128,7 @@ AUGMENTATION_CONFIG = {
 
 # Evaluation
 EVAL_CONFIG = {
-    'threshold': 0.5,  # Binary classification threshold
+    'threshold': 0.5,
     'metrics': ['macro_f1', 'micro_f1', 'per_class_f1', 'auc_roc'],
     'save_predictions': True,
     'save_visualizations': True,
@@ -152,9 +143,9 @@ DEVICE_CONFIG = {
 
 # Logging
 LOGGING_CONFIG = {
-    'log_interval': 10,  # Log every N batches
-    'save_interval': 5,  # Save checkpoint every N epochs
+    'log_interval': 10,
+    'save_interval': 5,
     'use_tensorboard': True,
-    'use_wandb': False,  # Set to True to use Weights & Biases
+    'use_wandb': False,
     'wandb_project': 'milk10k-skin-lesion',
 }

@@ -1,20 +1,18 @@
-# ===================================================================
 # MILK10k Skin Lesion Classification - Requirements
 # Python 3.10+
-# ===================================================================
 
 # Deep Learning Framework
 torch>=2.0.0
 torchvision>=0.15.0
 torchaudio>=2.0.0
-timm>=0.9.0  # PyTorch Image Models (for EfficientNet, etc.)
+timm>=0.9.0
 
 # Data Processing & Computer Vision
 pandas>=2.0.0
 numpy>=1.24.0
 opencv-python>=4.8.0
 Pillow>=10.0.0
-albumentations>=1.3.1  # Advanced image augmentation
+albumentations>=1.3.1
 
 # Visualization
 matplotlib>=3.7.0
@@ -39,29 +37,6 @@ jupyter>=1.0.0
 ipykernel>=6.25.0
 ipywidgets>=8.1.0
 
-# Optional: Weights & Biases for experiment tracking
+# Optional
 # wandb>=0.15.0
-
-# Optional: Hyperparameter tuning
 # optuna>=3.3.0
-
-# ===================================================================
-# Installation Instructions:
-# ===================================================================
-# 1. Create conda environment:
-#    conda create -n milk10k python=3.10
-#    conda activate milk10k
-#
-# 2. Install PyTorch with CUDA support (recommended):
-#    For CUDA 11.8:
-#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
-#
-#    For CUDA 12.1:
-#    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
-#
-#    For CPU only:
-#    pip install torch torchvision torchaudio
-#
-# 3. Install other requirements:
-#    pip install -r requirements.txt
-# ===================================================================

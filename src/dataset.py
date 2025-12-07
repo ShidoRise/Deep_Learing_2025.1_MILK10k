@@ -48,25 +48,15 @@ class MILK10kDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
         
-        # Load images - check if image paths are in dataframe (preferred)
         if 'clinical_image_path' in row and 'dermoscopic_image_path' in row:
-            # Use paths from dataframe (works for both train/val and test with proper preprocessing)
             clinical_img = self._load_image(row['clinical_image_path'])
             dermoscopic_img = self._load_image(row['dermoscopic_image_path'])
         elif self.is_test and self.image_dir:
-            # Fallback for test mode: construct paths from lesion_id (not recommended)
-            lesion_id = row['lesion_id']
-            lesion_dir = self.image_dir / lesion_id
-            
-            # Find clinical and dermoscopic images
-            # WARNING: This assumes alphabetical order matches clinical/dermoscopic
-            # which may not be correct! Use prepare_test_data() to create proper CSV
-            image_files = sorted(list(lesion_dir.glob('*.jpg')))
-            if len(image_files) < 2:
-                raise ValueError(f"Expected 2 images for lesion {lesion_id}, found {len(image_files)}")
-            
-            clinical_img = self._load_image(str(image_files[0]))
-            dermoscopic_img = self._load_image(str(image_files[1]))
+            lesion_id = row.get('lesion_id', 'unknown')
+            raise ValueError(
+                f"Cannot load images for lesion {lesion_id}: missing 'clinical_image_path' "
+                f"and 'dermoscopic_image_path' columns. Run prepare_test_data() first."
+            )
         else:
             raise ValueError(f"Cannot load images for row {idx}: no image paths in dataframe and not in test mode")
         
@@ -75,24 +65,16 @@ class MILK10kDataset(Dataset):
             clinical_img = self.transform(image=clinical_img)['image']
             dermoscopic_img = self.transform(image=dermoscopic_img)['image']
         
-        # Fusion strategy
         if self.fusion_strategy == 'early':
-            # Concatenate images along channel dimension
-            image = torch.cat([clinical_img, dermoscopic_img], dim=0)  # [6, H, W]
-        elif self.fusion_strategy == 'late':
-            # Return both images separately for late fusion
-            image = (clinical_img, dermoscopic_img)
+            image = torch.cat([clinical_img, dermoscopic_img], dim=0)
         else:
-            # For feature-level fusion, return both images
             image = (clinical_img, dermoscopic_img)
         
-        # Get labels (not available for test data)
         if not self.is_test:
             labels = torch.tensor(
                 row[DIAGNOSIS_CATEGORIES].values.astype(np.float32)
             )
         
-        # Get metadata if required
         if self.use_metadata:
             metadata = self._process_metadata(row)
             if self.is_test:
@@ -106,21 +88,17 @@ class MILK10kDataset(Dataset):
                 return image, labels
     
     def _load_image(self, image_path):
-        """Load and preprocess image"""
         img = cv2.imread(image_path)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         return img
     
     def _process_metadata(self, row):
-        """Process clinical metadata"""
         metadata_dict = {}
         
-        # Process categorical features
         if 'sex' in self.metadata_cols:
             sex_map = {'male': 0, 'female': 1, 'unknown': -1}
             metadata_dict['sex'] = sex_map.get(str(row['sex']).lower(), -1)
         
-        # Handle both 'site' and 'anatom_site_general' column names
         site_col = 'anatom_site_general' if 'anatom_site_general' in row else 'site'
         if site_col in self.metadata_cols or 'anatom_site_general' in self.metadata_cols:
             site_map = {
@@ -135,22 +113,18 @@ class MILK10kDataset(Dataset):
             site_value = str(row.get(site_col, 'unknown')).lower() if site_col in row else 'unknown'
             metadata_dict['site'] = site_map.get(site_value, -1)
         
-        # Process numerical features
         if 'age_approx' in self.metadata_cols or 'age_approx' in row:
             age = row.get('age_approx', 50.0)
-            metadata_dict['age'] = float(age) / 100.0 if not pd.isna(age) else 0.5  # Normalize
+            metadata_dict['age'] = float(age) / 100.0 if not pd.isna(age) else 0.5
         
-        # Handle both 'skin_tone' and 'skin_tone_class'
         if 'skin_tone' in self.metadata_cols or 'skin_tone_class' in row or 'skin_tone' in row:
             skin_tone = row.get('skin_tone', row.get('skin_tone_class', 3.0))
-            metadata_dict['skin_tone'] = float(skin_tone) / 5.0 if not pd.isna(skin_tone) else 0.6  # Normalize
+            metadata_dict['skin_tone'] = float(skin_tone) / 5.0 if not pd.isna(skin_tone) else 0.6
         
-        # Process MONET scores (already normalized 0-1)
         for col in self.metadata_cols:
             if col.startswith('clinical_MONET_') or col.startswith('dermoscopic_MONET_'):
                 metadata_dict[col] = row[col]
         
-        # Convert to tensor
         metadata_tensor = torch.tensor(
             list(metadata_dict.values()), dtype=torch.float32
         )
@@ -166,7 +140,6 @@ def get_transforms(image_size=384, augment=True):
         augment: Whether to apply augmentation (True for training, False for validation/test)
     """
     if augment:
-        # Training transforms with augmentation
         train_transform = A.Compose([
             A.Resize(image_size, image_size),
             A.RandomRotate90(p=0.5),
@@ -208,7 +181,6 @@ def get_transforms(image_size=384, augment=True):
             ToTensorV2()
         ])
     else:
-        # No augmentation - just resize and normalize
         train_transform = A.Compose([
             A.Resize(image_size, image_size),
             A.Normalize(
@@ -218,7 +190,6 @@ def get_transforms(image_size=384, augment=True):
             ToTensorV2()
         ])
     
-    # Validation/test transforms (no augmentation)
     val_transform = A.Compose([
         A.Resize(image_size, image_size),
         A.Normalize(
@@ -233,15 +204,11 @@ def get_transforms(image_size=384, augment=True):
 
 def get_dataloaders(train_df, val_df, batch_size=16, num_workers=4, 
                     image_size=384, fusion_strategy='early', use_metadata=True):
-    """Create DataLoaders for training and validation"""
-    
-    # Get transforms
     train_transform, val_transform = get_transforms(
         image_size=image_size,
         augment=AUGMENTATION_CONFIG['use_augmentation']
     )
     
-    # Create datasets
     train_dataset = MILK10kDataset(
         train_df,
         transform=train_transform,
@@ -256,7 +223,6 @@ def get_dataloaders(train_df, val_df, batch_size=16, num_workers=4,
         use_metadata=use_metadata
     )
     
-    # Create dataloaders
     train_loader = DataLoader(
         train_dataset,
         batch_size=batch_size,
