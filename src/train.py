@@ -135,17 +135,18 @@ class Trainer:
         for batch_idx, batch in enumerate(pbar):
             if len(batch) == 3:
                 images, labels, metadata = batch
-                images = images.to(self.device)
                 labels = labels.to(self.device)
                 metadata = metadata.to(self.device)
             else:
                 images, labels = batch
-                images = images.to(self.device)
                 labels = labels.to(self.device)
                 metadata = None
             
-            if isinstance(images, tuple):
+            # Handle both single tensor (early fusion) and tuple (late/attention fusion)
+            if isinstance(images, (tuple, list)):
                 images = (images[0].to(self.device), images[1].to(self.device))
+            else:
+                images = images.to(self.device)
             
             self.optimizer.zero_grad()
             
@@ -192,17 +193,18 @@ class Trainer:
             for batch in pbar:
                 if len(batch) == 3:
                     images, labels, metadata = batch
-                    images = images.to(self.device)
                     labels = labels.to(self.device)
                     metadata = metadata.to(self.device)
                 else:
                     images, labels = batch
-                    images = images.to(self.device)
                     labels = labels.to(self.device)
                     metadata = None
                 
-                if isinstance(images, tuple):
+                # Handle both single tensor (early fusion) and tuple (late/attention fusion)
+                if isinstance(images, (tuple, list)):
                     images = (images[0].to(self.device), images[1].to(self.device))
+                else:
+                    images = images.to(self.device)
                 
                 if metadata is not None:
                     outputs = self.model(images, metadata)

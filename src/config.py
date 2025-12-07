@@ -62,12 +62,12 @@ IMAGE_CONFIG = {
     'image_size': 384,
     'normalize_mean': [0.485, 0.456, 0.406],
     'normalize_std': [0.229, 0.224, 0.225],
-    'fusion_strategy': 'early',
+    'fusion_strategy': 'late',
 }
 
 # Training configuration
 TRAIN_CONFIG = {
-    'batch_size': 32,
+    'batch_size': 64,
     'num_epochs': 100,
     'learning_rate': 1e-4,
     'weight_decay': 1e-5,
