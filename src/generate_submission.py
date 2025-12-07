@@ -14,7 +14,7 @@ def prepare_test_data():
     Prepare test data CSV with metadata for inference
     
     This function creates a test data CSV similar to the training data format,
-    but for test samples. It includes isic_id and metadata features.
+    but for test samples. It includes lesion_id, image paths, and metadata features.
     """
     print("Preparing test data...")
     
@@ -28,71 +28,94 @@ def prepare_test_data():
         # Get all test image directories
         test_dirs = sorted([d for d in TEST_INPUT_DIR.iterdir() if d.is_dir()])
         
-        # Create basic test DataFrame with isic_id
+        # Create basic test DataFrame with lesion_id
         test_data = []
         for test_dir in test_dirs:
-            isic_id = test_dir.name
-            test_data.append({'isic_id': isic_id})
+            lesion_id = test_dir.name
+            if not lesion_id.startswith('IL_'):
+                continue  # Skip non-lesion directories
+            
+            # Find images in lesion directory
+            image_files = sorted(list(test_dir.glob('*.jpg')))
+            if len(image_files) < 2:
+                print(f"Warning: Lesion {lesion_id} has {len(image_files)} images, expected 2")
+                continue
+            
+            test_data.append({
+                'lesion_id': lesion_id,
+                'clinical_image_path': str(image_files[0]),
+                'dermoscopic_image_path': str(image_files[1]),
+                'age_approx': 50.0,
+                'sex': 'unknown',
+                'site': 'unknown',
+                'skin_tone_class': 3.0
+            })
         
         test_df = pd.DataFrame(test_data)
-        
-        # Add default metadata values (will be normalized in dataset)
-        test_df['age_approx'] = 50.0  # Default age
-        test_df['sex'] = 'unknown'  # Default sex
-        test_df['anatom_site_general'] = 'unknown'  # Default site
-        test_df['tbp_lv_location_simple'] = 'unknown'  # Default location
-        
-        print(f"Created test data with {len(test_df):,} samples")
+        print(f"Created test data with {len(test_df):,} samples (without metadata)")
     
     else:
         # Load test metadata
         test_metadata = pd.read_csv(test_metadata_path)
         print(f"Loaded test metadata: {len(test_metadata):,} rows (958 images from 479 lesions)")
         
-        # Rename 'site' to 'anatom_site_general' to match training data format
-        if 'site' in test_metadata.columns and 'anatom_site_general' not in test_metadata.columns:
-            test_metadata['anatom_site_general'] = test_metadata['site']
-        
-        # Group by lesion_id to get one row per lesion (we have 2 images per lesion)
-        # Keep the lesion_id as the identifier
+        # Group by lesion_id and process each lesion
         lesion_data = []
         for lesion_id, group in test_metadata.groupby('lesion_id'):
-            # Get first row as base (metadata is same for both images of same lesion)
-            row = group.iloc[0].copy()
-            row['lesion_id'] = lesion_id
-            lesion_data.append(row)
+            # Separate clinical and dermoscopic images
+            clinical_row = group[group['image_type'] == 'clinical: close-up']
+            dermoscopic_row = group[group['image_type'] == 'dermoscopic']
+            
+            if len(clinical_row) == 0 or len(dermoscopic_row) == 0:
+                print(f"Warning: Lesion {lesion_id} missing clinical or dermoscopic image")
+                continue
+            
+            clinical_row = clinical_row.iloc[0]
+            dermoscopic_row = dermoscopic_row.iloc[0]
+            
+            # Build image paths
+            clinical_path = str(TEST_INPUT_DIR / lesion_id / f"{clinical_row['isic_id']}.jpg")
+            dermoscopic_path = str(TEST_INPUT_DIR / lesion_id / f"{dermoscopic_row['isic_id']}.jpg")
+            
+            # Create lesion entry with properly prefixed MONET features
+            lesion_entry = {
+                'lesion_id': lesion_id,
+                'clinical_image_path': clinical_path,
+                'dermoscopic_image_path': dermoscopic_path,
+                'clinical_isic_id': clinical_row['isic_id'],
+                'dermoscopic_isic_id': dermoscopic_row['isic_id'],
+                'age_approx': clinical_row.get('age_approx', 50.0),
+                'sex': clinical_row.get('sex', 'unknown'),
+                'site': clinical_row.get('site', 'unknown'),
+                'skin_tone_class': clinical_row.get('skin_tone_class', 3.0),
+            }
+            
+            # Add MONET features with proper prefixes (to match training data format)
+            monet_cols = [col for col in clinical_row.index if col.startswith('MONET_')]
+            for col in monet_cols:
+                lesion_entry[f'clinical_{col}'] = clinical_row[col]
+                lesion_entry[f'dermoscopic_{col}'] = dermoscopic_row[col]
+            
+            lesion_data.append(lesion_entry)
         
         test_df = pd.DataFrame(lesion_data)
         print(f"Unique lesions: {len(test_df):,}")
         
-        # Ensure required columns exist
-        required_cols = ['age_approx', 'sex', 'anatom_site_general']
-        
-        for col in required_cols:
-            if col not in test_df.columns:
-                if col == 'age_approx':
-                    test_df[col] = 50.0
-                else:
-                    test_df[col] = 'unknown'
-        
-        # Fill NaN values (avoid FutureWarning)
+        # Fill NaN values
         test_df = test_df.copy()
         test_df['age_approx'] = test_df['age_approx'].fillna(50.0)
         test_df['sex'] = test_df['sex'].fillna('unknown')
-        test_df['anatom_site_general'] = test_df['anatom_site_general'].fillna('unknown')
-        
-        # Add skin_tone if exists
-        if 'skin_tone_class' in test_df.columns:
-            test_df['skin_tone'] = test_df['skin_tone_class']
-        else:
-            test_df['skin_tone'] = 3.0  # Default mid-tone
+        test_df['site'] = test_df['site'].fillna('unknown')
+        test_df['skin_tone_class'] = test_df['skin_tone_class'].fillna(3.0)
     
     # Save processed test data
     output_path = PREPROCESSED_DIR / 'test_data.csv'
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     test_df.to_csv(output_path, index=False)
     
     print(f"Test data saved: {output_path}")
     print(f"Shape: {test_df.shape}")
+    print(f"Columns: {list(test_df.columns)}")
     print("\nTest data preview:")
     print(test_df.head())
     

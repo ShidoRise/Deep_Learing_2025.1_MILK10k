@@ -48,13 +48,19 @@ class MILK10kDataset(Dataset):
     def __getitem__(self, idx):
         row = self.df.iloc[idx]
         
-        # Load images
-        if self.is_test and self.image_dir:
-            # Test mode: construct paths from lesion_id
+        # Load images - check if image paths are in dataframe (preferred)
+        if 'clinical_image_path' in row and 'dermoscopic_image_path' in row:
+            # Use paths from dataframe (works for both train/val and test with proper preprocessing)
+            clinical_img = self._load_image(row['clinical_image_path'])
+            dermoscopic_img = self._load_image(row['dermoscopic_image_path'])
+        elif self.is_test and self.image_dir:
+            # Fallback for test mode: construct paths from lesion_id (not recommended)
             lesion_id = row['lesion_id']
             lesion_dir = self.image_dir / lesion_id
             
             # Find clinical and dermoscopic images
+            # WARNING: This assumes alphabetical order matches clinical/dermoscopic
+            # which may not be correct! Use prepare_test_data() to create proper CSV
             image_files = sorted(list(lesion_dir.glob('*.jpg')))
             if len(image_files) < 2:
                 raise ValueError(f"Expected 2 images for lesion {lesion_id}, found {len(image_files)}")
@@ -62,9 +68,7 @@ class MILK10kDataset(Dataset):
             clinical_img = self._load_image(str(image_files[0]))
             dermoscopic_img = self._load_image(str(image_files[1]))
         else:
-            # Training/validation mode: use paths from dataframe
-            clinical_img = self._load_image(row['clinical_image_path'])
-            dermoscopic_img = self._load_image(row['dermoscopic_image_path'])
+            raise ValueError(f"Cannot load images for row {idx}: no image paths in dataframe and not in test mode")
         
         # Apply transforms
         if self.transform:
@@ -154,10 +158,14 @@ class MILK10kDataset(Dataset):
         return metadata_tensor
 
 
-def get_transforms(image_size=384, augmentation=True):
-    """Get image transforms for training and validation"""
+def get_transforms(image_size=384, augment=True):
+    """Get image transforms for training and validation
     
-    if augmentation:
+    Args:
+        image_size: Target image size
+        augment: Whether to apply augmentation (True for training, False for validation/test)
+    """
+    if augment:
         # Training transforms with augmentation
         train_transform = A.Compose([
             A.Resize(image_size, image_size),
@@ -200,6 +208,7 @@ def get_transforms(image_size=384, augmentation=True):
             ToTensorV2()
         ])
     else:
+        # No augmentation - just resize and normalize
         train_transform = A.Compose([
             A.Resize(image_size, image_size),
             A.Normalize(
@@ -209,7 +218,7 @@ def get_transforms(image_size=384, augmentation=True):
             ToTensorV2()
         ])
     
-    # Validation transforms (no augmentation)
+    # Validation/test transforms (no augmentation)
     val_transform = A.Compose([
         A.Resize(image_size, image_size),
         A.Normalize(
@@ -229,7 +238,7 @@ def get_dataloaders(train_df, val_df, batch_size=16, num_workers=4,
     # Get transforms
     train_transform, val_transform = get_transforms(
         image_size=image_size,
-        augmentation=AUGMENTATION_CONFIG['use_augmentation']
+        augment=AUGMENTATION_CONFIG['use_augmentation']
     )
     
     # Create datasets

@@ -48,8 +48,23 @@ def count_parameters(model):
     return total_params, trainable_params
 
 
-def save_checkpoint(model, optimizer, scheduler, epoch, metrics, filepath):
-    """Save model checkpoint"""
+def save_checkpoint(model, optimizer, epoch, metrics, checkpoint_dir, filename='checkpoint.pth', scheduler=None):
+    """Save model checkpoint
+    
+    Args:
+        model: PyTorch model
+        optimizer: Optimizer
+        epoch: Current epoch number
+        metrics: Metrics value (e.g., F1 score)
+        checkpoint_dir: Directory to save checkpoint
+        filename: Checkpoint filename (default: 'checkpoint.pth')
+        scheduler: Optional learning rate scheduler
+    """
+    # Ensure checkpoint directory exists
+    Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
+    
+    filepath = Path(checkpoint_dir) / filename
+    
     checkpoint = {
         'epoch': epoch,
         'model_state_dict': model.state_dict(),
@@ -62,9 +77,20 @@ def save_checkpoint(model, optimizer, scheduler, epoch, metrics, filepath):
     print(f"Checkpoint saved: {filepath}")
 
 
-def load_checkpoint(filepath, model, optimizer=None, scheduler=None):
-    """Load model checkpoint"""
-    checkpoint = torch.load(filepath)
+def load_checkpoint(model, optimizer=None, filepath=None, device='cuda', scheduler=None):
+    """Load model checkpoint
+    
+    Args:
+        model: PyTorch model to load weights into
+        optimizer: Optional optimizer to load state
+        filepath: Path to checkpoint file
+        device: Device to load checkpoint to
+        scheduler: Optional scheduler to load state
+    
+    Returns:
+        tuple: (epoch, metrics)
+    """
+    checkpoint = torch.load(filepath, map_location=device)
     model.load_state_dict(checkpoint['model_state_dict'])
     
     if optimizer and 'optimizer_state_dict' in checkpoint:

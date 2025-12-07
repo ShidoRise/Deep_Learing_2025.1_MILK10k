@@ -76,7 +76,7 @@ IMAGE_CONFIG = {
 
 # Training configuration
 TRAIN_CONFIG = {
-    'batch_size': 16,
+    'batch_size': 32,
     'num_epochs': 100,
     'learning_rate': 1e-4,
     'weight_decay': 1e-5,

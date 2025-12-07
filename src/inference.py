@@ -56,7 +56,7 @@ class Predictor:
         Generate predictions for test set
         
         Args:
-            test_df: DataFrame with test data
+            test_df: DataFrame with test data (should have clinical_image_path and dermoscopic_image_path columns)
             batch_size: Batch size for inference
             num_workers: Number of workers for data loading
             
@@ -64,15 +64,20 @@ class Predictor:
             predictions: numpy array of shape (n_samples, n_classes)
         """
         # Create test dataset
-        test_transform = get_transforms(
+        _, test_transform = get_transforms(
             image_size=IMAGE_CONFIG['image_size'],
             augment=False  # No augmentation for test
         )
         
+        # Determine if we need image_dir (fallback if paths not in dataframe)
+        has_image_paths = 'clinical_image_path' in test_df.columns and 'dermoscopic_image_path' in test_df.columns
+        image_dir = None if has_image_paths else TEST_INPUT_DIR
+        
         test_dataset = MILK10kDataset(
             df=test_df,
-            image_dir=TEST_INPUT_DIR,
+            image_dir=image_dir,
             transform=test_transform,
+            fusion_strategy=IMAGE_CONFIG['fusion_strategy'],
             use_metadata=MODEL_CONFIG['use_metadata'],
             is_test=True
         )
@@ -131,7 +136,7 @@ class Predictor:
         Generate predictions with Test Time Augmentation (TTA)
         
         Args:
-            test_df: DataFrame with test data
+            test_df: DataFrame with test data (should have clinical_image_path and dermoscopic_image_path columns)
             batch_size: Batch size for inference
             num_workers: Number of workers for data loading
             n_tta: Number of TTA iterations
@@ -141,21 +146,26 @@ class Predictor:
         """
         print(f"\nUsing Test Time Augmentation (TTA) with {n_tta} iterations")
         
+        # Determine if we need image_dir (fallback if paths not in dataframe)
+        has_image_paths = 'clinical_image_path' in test_df.columns and 'dermoscopic_image_path' in test_df.columns
+        image_dir = None if has_image_paths else TEST_INPUT_DIR
+        
         all_tta_predictions = []
         
         for tta_idx in range(n_tta):
             print(f"\nTTA iteration {tta_idx + 1}/{n_tta}")
             
-            # Create test dataset with augmentation
-            test_transform = get_transforms(
+            # Create test dataset with augmentation for TTA
+            tta_transform, _ = get_transforms(
                 image_size=IMAGE_CONFIG['image_size'],
                 augment=True  # Use augmentation for TTA
             )
             
             test_dataset = MILK10kDataset(
                 df=test_df,
-                image_dir=TEST_INPUT_DIR,
-                transform=test_transform,
+                image_dir=image_dir,
+                transform=tta_transform,
+                fusion_strategy=IMAGE_CONFIG['fusion_strategy'],
                 use_metadata=MODEL_CONFIG['use_metadata'],
                 is_test=True
             )

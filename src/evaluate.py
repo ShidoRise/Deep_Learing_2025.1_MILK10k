@@ -33,8 +33,11 @@ def compute_metrics(predictions, targets, threshold=0.5):
     if isinstance(targets, torch.Tensor):
         targets = targets.cpu().numpy()
     
+    # Ensure targets are integers (0 or 1)
+    targets = targets.astype(np.int32)
+    
     # Binarize predictions
-    pred_binary = (predictions >= threshold).astype(int)
+    pred_binary = (predictions >= threshold).astype(np.int32)
     
     # Compute metrics
     metrics = {}
@@ -50,6 +53,7 @@ def compute_metrics(predictions, targets, threshold=0.5):
     
     # Per-class F1
     per_class_f1 = f1_score(targets, pred_binary, average=None, zero_division=0)
+    metrics['per_class_f1'] = per_class_f1  # Store as array for TensorBoard logging
     for i, category in enumerate(DIAGNOSIS_CATEGORIES):
         metrics[f'f1_{category}'] = per_class_f1[i]
     

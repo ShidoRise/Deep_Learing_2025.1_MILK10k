@@ -248,8 +248,11 @@ class Trainer:
         all_outputs = np.vstack(all_outputs)
         all_labels = np.vstack(all_labels)
         
-        # Compute metrics
-        metrics = compute_metrics(all_labels, all_outputs, threshold=0.5)
+        # Ensure labels are integers (0 or 1) for sklearn metrics
+        all_labels = all_labels.astype(np.int32)
+        
+        # Compute metrics (predictions first, then targets)
+        metrics = compute_metrics(all_outputs, all_labels, threshold=0.5)
         
         return loss_meter.avg, metrics
     

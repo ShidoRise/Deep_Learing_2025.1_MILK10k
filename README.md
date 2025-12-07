@@ -1,231 +1,171 @@
 # 🩺 MILK10k Skin Lesion Classification
 
-Dự án Deep Learning phân loại tổn thương da sử dụng dataset MILK10k với 11 loại chẩn đoán.
+Deep Learning project for multi-label skin lesion classification using the MILK10k dataset with 11 diagnostic categories.
 
-## 📋 Mục tiêu
+## 📋 Objective
 
-Xây dựng mô hình phân loại đa nhãn (multi-label classification) cho 11 loại tổn thương da:
-- AKIEC: Actinic keratosis / intraepidermal carcinoma
-- BCC: Basal cell carcinoma
-- BEN_OTH: Other benign proliferations
-- BKL: Benign keratinocytic lesion
-- DF: Dermatofibroma
-- INF: Inflammatory and infectious conditions
-- MAL_OTH: Other malignant proliferations
-- MEL: Melanoma
-- NV: Melanocytic nevus
-- SCCKA: Squamous cell carcinoma / keratoacanthoma
-- VASC: Vascular lesions and hemorrhage
+Build a multi-label classification model for 11 skin lesion types:
+
+| Code | Description |
+|------|-------------|
+| AKIEC | Actinic keratosis / intraepidermal carcinoma |
+| BCC | Basal cell carcinoma |
+| BEN_OTH | Other benign proliferations |
+| BKL | Benign keratinocytic lesion |
+| DF | Dermatofibroma |
+| INF | Inflammatory and infectious conditions |
+| MAL_OTH | Other malignant proliferations |
+| MEL | Melanoma |
+| NV | Melanocytic nevus |
+| SCCKA | Squamous cell carcinoma / keratoacanthoma |
+| VASC | Vascular lesions and hemorrhage |
 
 ## 📊 Dataset
 
-- **Training**: 5,240 lesions (10,480 images)
-- **Test**: 479 lesions (958 images)
-- Mỗi lesion có 2 ảnh: Clinical close-up + Dermatoscopic
+| Split | Lesions | Images |
+|-------|---------|--------|
+| Training | 5,240 | 10,480 |
+| Test | 479 | 958 |
+
+- Each lesion has 2 images: **Clinical close-up** + **Dermoscopic**
 - Metadata: Age, sex, skin tone, anatomical site, MONET scores
 
-## 🏗️ Cấu trúc Project
+## 🏗️ Project Structure
 
 ```
 DEEP_LEARNING/
-├── dataset/                          # Dữ liệu gốc
+├── dataset/                          # Raw data
 │   ├── MILK10k_Training_GroundTruth.csv
 │   ├── MILK10k_Training_Metadata.csv
 │   ├── MILK10k_Training_Supplement.csv
-│   ├── MILK10k_Training_Input/       # Ảnh training
-│   └── MILK10k_Test_Input/           # Ảnh test
+│   ├── MILK10k_Test_Metadata.csv
+│   ├── MILK10k_Training_Input/       # Training images
+│   └── MILK10k_Test_Input/           # Test images
 │
-├── preprocessed_data/                # Dữ liệu đã xử lý
-│   ├── train/
-│   ├── val/
-│   └── metadata.csv
+├── preprocessed_data/                # Processed data
+│   ├── train_data.csv               # 4,192 samples
+│   ├── val_data.csv                 # 1,048 samples
+│   ├── test_data.csv                # 479 samples (generated)
+│   └── class_weights.json
 │
 ├── src/                              # Source code
-│   ├── __init__.py
 │   ├── config.py                     # Configuration
-│   ├── data_preprocessing.py         # Tiền xử lý dữ liệu
+│   ├── data_preprocessing.py         # Data preprocessing
 │   ├── dataset.py                    # Dataset & DataLoader
-│   ├── augmentation.py               # Data augmentation
-│   ├── models.py                     # Kiến trúc mô hình
+│   ├── models.py                     # Model architectures
 │   ├── train.py                      # Training pipeline
+│   ├── inference.py                  # Inference pipeline
+│   ├── generate_submission.py        # Submission generator
 │   ├── evaluate.py                   # Evaluation metrics
 │   └── utils.py                      # Utilities
 │
 ├── notebooks/                        # Jupyter notebooks
 │   ├── 01_EDA.ipynb                  # Exploratory Data Analysis
-│   ├── 02_Preprocessing.ipynb        # Data preprocessing
-│   ├── 03_Training.ipynb             # Model training
-│   └── 04_Evaluation.ipynb           # Model evaluation
+│   └── Train_MILK10k_Colab.ipynb     # Google Colab training
 │
 ├── models/                           # Saved models
-│   └── checkpoints/
+│   ├── best_model.pth               # Best model checkpoint
+│   └── training_history.csv         # Training history
 │
-├── results/                          # Kết quả
-│   ├── predictions/
-│   ├── visualizations/
-│   └── metrics/
+├── results/                          # Results
+│   └── submission.csv               # Generated submission
 │
-├── logs/                             # Training logs
-│
-├── requirements.txt
-└── README.md
+├── logs/                             # TensorBoard logs
+└── requirements.txt
 ```
 
-## 🚀 Hướng dẫn sử dụng
+## 🚀 Quick Start
 
-### 1. Cài đặt môi trường
+### 1. Setup Environment
 
 ```bash
-# Tạo conda environment
+# Create conda environment
 conda create -n milk10k python=3.10
 conda activate milk10k
 
-# Cài đặt dependencies
+# Install PyTorch with CUDA (check your CUDA version with nvidia-smi)
+# For CUDA 11.8:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
+# For CUDA 12.1:
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+
+# Install other dependencies
 pip install -r requirements.txt
+
+# Verify GPU
+python -c "import torch; print(f'CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0) if torch.cuda.is_available() else None}')"
 ```
 
-### 2. Tiền xử lý dữ liệu
+### 2. Data Preprocessing
 
 ```bash
 python src/data_preprocessing.py
 ```
 
-Kết quả:
+Output:
 - `preprocessed_data/train_data.csv`: 4,192 samples
 - `preprocessed_data/val_data.csv`: 1,048 samples  
-- `preprocessed_data/class_weights.json`: Trọng số cho class imbalance
+- `preprocessed_data/class_weights.json`: Class weights for imbalance
 
-### 3. Khám phá dữ liệu (Optional)
+### 3. Training
 
-```bash
-jupyter notebook notebooks/EDA.ipynb
-```
-
-### 4. Training model
-
-**Lưu ý**: Training yêu cầu GPU mạnh (recommended: RTX 3060+, 8GB+ VRAM)
-
+**Option A: Local GPU Training**
 ```bash
 python src/train.py
 ```
 
-Cấu hình mặc định:
-- Model: EfficientNet-B3
-- Image size: 384×384
-- Batch size: 16
-- Epochs: 100 (với early stopping patience=15)
-- Loss: Focal Loss với class weights
-- Optimizer: AdamW (lr=1e-4, weight_decay=1e-5)
-- Mixed precision training (AMP)
-- TensorBoard logging
+**Option B: Google Colab** (recommended if no local GPU)
+- Upload `notebooks/Train_MILK10k_Colab.ipynb` to Colab
+- Set runtime to GPU (T4 or A100)
+- Follow the notebook instructions
 
-Kết quả training:
-- `models/best_model.pth`: Model tốt nhất theo Macro F1
-- `models/training_history.csv`: Lịch sử training
-- `logs/`: TensorBoard logs
-
-Xem training progress:
+Monitor training:
 ```bash
 tensorboard --logdir=logs
 ```
 
-### 5. Inference & Generate Submission
-
-Sau khi training xong, tạo file submission:
+### 4. Generate Submission
 
 ```bash
-# Prediction thông thường
+# Standard inference
 python src/generate_submission.py --model_path models/best_model.pth
 
-# Với Test Time Augmentation (TTA) - tốt hơn nhưng chậm hơn
+# With Test Time Augmentation (better accuracy, slower)
 python src/generate_submission.py --model_path models/best_model.pth --use_tta
 ```
 
-Kết quả:
-- `results/submission.csv`: File submission chuẩn
-- `results/submission_tta.csv`: File submission với TTA
+Output: `results/submission.csv`
 
-### 6. Evaluation (Optional)
+## 🔧 Model Architecture
 
-Đánh giá model trên validation set:
-
-```bash
-python src/evaluate.py --model_path models/best_model.pth
-```
-
-## 📈 Evaluation Metric
-
-- **Primary**: Macro F1 Score
-- **Threshold**: 0.5 cho binary prediction
-- Multi-label: Một lesion có thể được dự đoán thuộc nhiều category
-
-## 🧪 Chiến lược Preprocessing
-
-1. **Image Processing**:
-   - Resize về kích thước chuẩn (224x224 hoặc 384x384)
-   - Normalization theo ImageNet stats
-   - Color augmentation
-
-2. **Data Fusion**:
-   - Early fusion: Concatenate 2 ảnh
-   - Late fusion: Ensemble predictions
-   - Feature-level fusion
-
-3. **Metadata Integration**:
-   - MONET scores (ulceration, hair, vasculature, etc.)
-   - Age, sex, skin tone, anatomical site
-   - Concatenate với image features
-
-4. **Data Augmentation**:
-   - Random rotation, flip, crop
-   - Color jittering
-   - Cutout / MixUp
-
-5. **Class Imbalance**:
-   - Weighted loss function
-   - Oversampling minority classes
-   - Focal Loss
-
-## 🎯 Roadmap
-
-- [x] Phase 1: EDA & Data Understanding
-- [x] Phase 2: Data Preprocessing Pipeline
-- [x] Phase 3: Baseline Model (EfficientNet-B3)
-- [x] Phase 4: Multi-input Architecture (Early Fusion + Metadata)
-- [x] Phase 5: Training Pipeline với Focal Loss, AMP, Early Stopping
-- [x] Phase 6: Inference & Submission Generator
-- [ ] Phase 7: Hyperparameter Tuning
-- [ ] Phase 8: Ensemble Methods
-- [ ] Phase 9: Submit to MILK10k Benchmark
-
-## 🔧 Technical Details
-
-### Model Architecture
-- **Backbone**: EfficientNet-B3 (pretrained on ImageNet)
-- **Input**: 384×384 RGB images
-- **Fusion Strategy**: Early fusion (concatenate clinical + dermoscopic images)
-- **Metadata Integration**: Concatenate với image features trước classifier
-- **Output**: 11-class multi-label classification
-- **Total Parameters**: ~11.5M
+| Component | Configuration |
+|-----------|--------------|
+| Backbone | EfficientNet-B3 (ImageNet pretrained) |
+| Input Size | 384×384 RGB |
+| Fusion Strategy | Early fusion (concatenate clinical + dermoscopic → 6 channels) |
+| Metadata | 18 features (4 clinical + 14 MONET scores) |
+| Output | 11-class multi-label (sigmoid) |
+| Parameters | ~12M |
 
 ### Training Configuration
+
 ```python
 MODEL_CONFIG = {
     'architecture': 'efficientnet_b3',
     'pretrained': True,
     'use_metadata': True,
-    'metadata_dim': 18,  # 4 clinical + 14 MONET scores
+    'metadata_dim': 18,
     'dropout': 0.3
 }
 
 TRAIN_CONFIG = {
-    'batch_size': 16,
+    'batch_size': 32,
     'num_epochs': 100,
     'learning_rate': 1e-4,
     'weight_decay': 1e-5,
     'scheduler': 'cosine',
     'early_stopping_patience': 15,
-    'mixed_precision': True
+    'mixed_precision': True  # AMP for faster training
 }
 
 LOSS_CONFIG = {
@@ -236,85 +176,54 @@ LOSS_CONFIG = {
 ```
 
 ### Data Augmentation
-- Training: RandomRotate90, HorizontalFlip, VerticalFlip, ShiftScaleRotate, ColorJitter, GaussNoise, CoarseDropout
-- Validation/Test: Only Resize + Normalize
 
-## 🤝 Hướng dẫn cho Team Members
+**Training:**
+- RandomRotate90, HorizontalFlip, VerticalFlip
+- ShiftScaleRotate, ElasticTransform, GridDistortion
+- ColorJitter, GaussNoise, GaussianBlur
+- CoarseDropout
 
-### Nếu bạn có GPU mạnh để train:
+**Validation/Test:** Resize + Normalize only
 
-1. **Clone repository**:
-```bash
-git clone <repository-url>
-cd DEEP_LEARNING
-```
+## 📈 Evaluation
 
-2. **Setup environment**:
-```bash
-conda create -n milk10k python=3.10
-conda activate milk10k
-pip install -r requirements.txt
-```
-
-3. **Download dataset** và đặt vào thư mục `dataset/`
-
-4. **Tiền xử lý dữ liệu** (nếu chưa có preprocessed_data):
-```bash
-python src/data_preprocessing.py
-```
-
-5. **Start training**:
-```bash
-python src/train.py
-```
-
-6. **Monitor training** với TensorBoard:
-```bash
-tensorboard --logdir=logs
-```
-
-7. **Generate submission** sau khi training xong:
-```bash
-python src/generate_submission.py --model_path models/best_model.pth --use_tta
-```
-
-8. **Push model về repository**:
-```bash
-# Lưu ý: model files rất lớn, cân nhắc dùng Git LFS hoặc upload lên Google Drive
-git add models/best_model.pth
-git commit -m "Add trained model checkpoint"
-git push
-```
-
-### Nếu chỉ muốn test inference:
-
-1. Download pretrained model từ team member
-2. Chạy inference:
-```bash
-python src/generate_submission.py --model_path path/to/model.pth
-```
+- **Primary Metric**: Macro F1 Score
+- **Threshold**: 0.5 for binary prediction
+- **Multi-label**: Each lesion can belong to multiple categories
 
 ## ⚙️ System Requirements
 
-### Minimum (cho inference):
-- CPU: 4 cores
-- RAM: 8GB
-- GPU: Optional (CPU inference chậm nhưng vẫn chạy được)
+| Type | Minimum | Recommended |
+|------|---------|-------------|
+| CPU | 4 cores | 8+ cores |
+| RAM | 8GB | 16GB+ |
+| GPU | - | RTX 3060+ (8GB+ VRAM) |
+| Storage | 20GB | 50GB+ |
 
-### Recommended (cho training):
-- CPU: 8+ cores
-- RAM: 16GB+
-- GPU: NVIDIA RTX 3060 hoặc cao hơn (8GB+ VRAM)
-- Storage: 50GB+ free space
+### Training Time Estimates
 
-### Training Time Estimate:
-- **RTX 3060 (12GB)**: ~10-15 giờ cho 100 epochs
-- **RTX 3090 (24GB)**: ~5-8 giờ cho 100 epochs
-- **A100 (40GB)**: ~3-5 giờ cho 100 epochs
-- **MX570 (2GB)**: ~30-40 giờ (không khuyến khích)
+| GPU | Time (100 epochs) |
+|-----|------------------|
+| RTX 3060 (12GB) | ~10-15 hours |
+| RTX 3090 (24GB) | ~5-8 hours |
+| A100 (40GB) | ~3-5 hours |
+| T4 (Colab) | ~15-20 hours |
+
+## 🎯 Project Status
+
+- [x] EDA & Data Understanding
+- [x] Data Preprocessing Pipeline
+- [x] Baseline Model (EfficientNet-B3)
+- [x] Multi-input Architecture (Early Fusion + Metadata)
+- [x] Training Pipeline (Focal Loss, AMP, Early Stopping)
+- [x] Inference & Submission Generator
+- [x] Google Colab Training Notebook
+- [ ] Hyperparameter Tuning
+- [ ] Ensemble Methods
 
 ## 📝 Notes
 
-- Dataset cân bằng: Check phân bố các classes
-- Multi-label: Sử dụng BCE Loss thay vì CrossEntropy
-- Fusion strategy quan trọng cho dual-image input
+- **Class Imbalance**: Handled via Focal Loss + class weights
+- **Multi-label**: Uses BCE Loss (not CrossEntropy)
+- **Dual-image Input**: Early fusion strategy (6-channel input)
+- **Metadata Integration**: Concatenated with image features before classifier
