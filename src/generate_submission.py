@@ -151,11 +151,10 @@ def generate_submission(model_path=None, use_tta=False):
     submission = create_submission(
         predictions=predictions,
         test_df=test_df,
-        output_path=output_path,
-        threshold=0.5
+        output_path=output_path
     )
     
-    print(f"\n✅ Submission generated successfully!")
+    print(f"\n[OK] Submission generated successfully!")
     print(f"Submission file: {output_path}")
     
     return submission

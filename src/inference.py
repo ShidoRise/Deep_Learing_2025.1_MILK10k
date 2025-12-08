@@ -36,6 +36,7 @@ class Predictor:
             num_classes=len(DIAGNOSIS_CATEGORIES),
             pretrained=False,  # Load our trained weights
             fusion_strategy=IMAGE_CONFIG['fusion_strategy'],
+            use_attention=MODEL_CONFIG.get('use_attention', False),
             use_metadata=MODEL_CONFIG['use_metadata'],
             metadata_dim=MODEL_CONFIG['metadata_dim'],
             dropout=MODEL_CONFIG['dropout']
@@ -80,15 +81,16 @@ class Predictor:
             for batch in tqdm(test_loader, desc='Predicting'):
                 if len(batch) == 2:
                     images, metadata = batch
-                    images = images.to(self.device)
                     metadata = metadata.to(self.device)
                 else:
                     images = batch[0]
-                    images = images.to(self.device)
                     metadata = None
                 
-                if isinstance(images, tuple):
+                # Handle both early fusion (single tensor) and late fusion (tuple)
+                if isinstance(images, (list, tuple)):
                     images = (images[0].to(self.device), images[1].to(self.device))
+                else:
+                    images = images.to(self.device)
                 
                 if metadata is not None:
                     outputs = self.model(images, metadata)
@@ -143,15 +145,16 @@ class Predictor:
                 for batch in tqdm(test_loader, desc=f'TTA {tta_idx+1}'):
                     if len(batch) == 2:
                         images, metadata = batch
-                        images = images.to(self.device)
                         metadata = metadata.to(self.device)
                     else:
                         images = batch[0]
-                        images = images.to(self.device)
                         metadata = None
                     
-                    if isinstance(images, tuple):
+                    # Handle both early fusion (single tensor) and late fusion (tuple)
+                    if isinstance(images, (list, tuple)):
                         images = (images[0].to(self.device), images[1].to(self.device))
+                    else:
+                        images = images.to(self.device)
                     
                     if metadata is not None:
                         outputs = self.model(images, metadata)
@@ -171,15 +174,20 @@ class Predictor:
         return predictions
 
 
-def create_submission(predictions, test_df, output_path, threshold=0.5):
-    binary_predictions = (predictions >= threshold).astype(int)
+def create_submission(predictions, test_df, output_path):
+    """
+    Create submission file with probability values.
     
+    Note: ISIC MILK10k challenge expects floating-point probabilities in [0.0, 1.0].
+    The challenge system will apply threshold >= 0.5 during evaluation.
+    """
     submission = pd.DataFrame({
         'lesion_id': test_df['lesion_id'].values
     })
     
+    # Save raw probabilities (NOT binary) as required by ISIC challenge
     for i, category in enumerate(DIAGNOSIS_CATEGORIES):
-        submission[category] = binary_predictions[:, i]
+        submission[category] = predictions[:, i]
     
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
@@ -187,14 +195,15 @@ def create_submission(predictions, test_df, output_path, threshold=0.5):
     
     print(f"\nSubmission saved: {output_path}")
     print(f"Shape: {submission.shape}")
-    print("\nSubmission preview:")
+    print("\nSubmission preview (probabilities):")
     print(submission.head())
     
-    print("\nPrediction statistics:")
+    # Show statistics based on 0.5 threshold (for reference only)
+    print("\nPrediction statistics (threshold >= 0.5):")
     for category in DIAGNOSIS_CATEGORIES:
-        count = submission[category].sum()
-        percentage = (count / len(submission)) * 100
-        print(f"  {category}: {count:,} ({percentage:.2f}%)")
+        count = (submission[category] >= 0.5).sum()
+        mean_prob = submission[category].mean()
+        print(f"  {category}: {count:,} positive, mean prob: {mean_prob:.4f}")
     
     return submission
 

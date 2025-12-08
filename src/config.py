@@ -47,7 +47,7 @@ CLINICAL_FEATURES = [
     'site'
 ]
 
-# Model configuration
+# Model configuration (EfficientNet-B3 baseline)
 MODEL_CONFIG = {
     'architecture': 'efficientnet_b3',
     'pretrained': True,
@@ -55,6 +55,19 @@ MODEL_CONFIG = {
     'dropout': 0.3,
     'use_metadata': True,
     'metadata_dim': 18,
+    'use_attention': True,  # Use attention fusion (dual backbone with learned weights)
+}
+
+# EfficientNetV2-L configuration (optimized for A100 80GB)
+MODEL_CONFIG_V2 = {
+    'architecture': 'tf_efficientnetv2_l',  # Options: tf_efficientnetv2_s, tf_efficientnetv2_m, tf_efficientnetv2_l
+    'pretrained': True,
+    'num_classes': 11,
+    'dropout': 0.3,
+    'use_metadata': True,
+    'metadata_dim': 18,
+    'use_auxiliary_heads': True,  # Deep supervision with auxiliary classification heads
+    'cross_attention_heads': 8,   # Number of attention heads for cross-modal attention
 }
 
 # Image preprocessing
@@ -62,7 +75,15 @@ IMAGE_CONFIG = {
     'image_size': 384,
     'normalize_mean': [0.485, 0.456, 0.406],
     'normalize_std': [0.229, 0.224, 0.225],
-    'fusion_strategy': 'late',
+    'fusion_strategy': 'late',  # 'early' for 6-channel, 'late' for separate backbones
+}
+
+# Image config for V2 model (larger images for better accuracy)
+IMAGE_CONFIG_V2 = {
+    'image_size': 480,  # Larger images for V2-L (can go up to 512 on A100 80GB)
+    'normalize_mean': [0.485, 0.456, 0.406],
+    'normalize_std': [0.229, 0.224, 0.225],
+    'fusion_strategy': 'late',  # Always 'late' for V2 (dual backbone)
 }
 
 # Training configuration
@@ -85,6 +106,32 @@ TRAIN_CONFIG = {
     'log_dir': str(LOGS_DIR),
 }
 
+# Training configuration for V2 model (A100 80GB optimized)
+TRAIN_CONFIG_V2 = {
+    'batch_size': 48,           # Optimized for A100 80GB with 480x480 images (can try 64)
+    'num_epochs': 60,           # Fewer epochs needed with larger model
+    'learning_rate': 5e-5,      # Lower LR for larger model
+    'weight_decay': 1e-4,       # Slightly higher weight decay
+    'min_lr': 1e-7,
+    'optimizer': 'adamw',
+    'scheduler': 'cosine_warmup',  # Cosine with linear warmup
+    'warmup_epochs': 3,
+    'early_stopping_patience': 12,
+    'gradient_clip': 1.0,
+    'mixed_precision': True,    # Essential for memory efficiency
+    'random_seed': 42,
+    'num_workers': 8,           # More workers for A100 instances
+    'save_every': 5,
+    'checkpoint_dir': str(MODELS_DIR),
+    'log_dir': str(LOGS_DIR),
+    # V2 specific
+    'use_ema': True,            # Exponential moving average for better generalization
+    'ema_decay': 0.9999,
+    'aux_loss_weight': 0.3,     # Weight for auxiliary classification heads
+    'label_smoothing': True,
+    'gradient_accumulation': 1,  # Increase if batch_size needs to be reduced
+}
+
 # Loss function
 LOSS_CONFIG = {
     'type': 'bce_with_logits',
@@ -92,6 +139,18 @@ LOSS_CONFIG = {
     'focal_alpha': 0.25,
     'focal_gamma': 2.0,
     'use_class_weights': True,
+}
+
+# Loss function config for V2 model (better for class imbalance)
+LOSS_CONFIG_V2 = {
+    'type': 'asymmetric',       # Options: 'asymmetric', 'class_balanced', 'ldam', 'focal'
+    'gamma_neg': 4.0,           # Asymmetric loss: higher gamma for negatives
+    'gamma_pos': 1.0,           # Asymmetric loss: lower gamma for positives
+    'focal_gamma': 2.0,         # For focal/class_balanced losses
+    'use_class_weights': True,
+    'use_label_smoothing': True,
+    'smoothing_pos': 0.1,
+    'smoothing_neg': 0.02,
 }
 
 # Data split
