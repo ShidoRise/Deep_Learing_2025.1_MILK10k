@@ -93,8 +93,9 @@ class ClassBalancedFocalLoss(nn.Module):
         # Focal weighting
         focal_weight = (1 - pt) ** self.gamma
         
-        # Class-balanced weighting
-        cb_loss = self.weights.unsqueeze(0) * focal_weight * BCE_loss
+        # Class-balanced weighting (move weights to same device as inputs)
+        weights = self.weights.to(inputs.device)
+        cb_loss = weights.unsqueeze(0) * focal_weight * BCE_loss
         
         if self.reduction == 'mean':
             return cb_loss.mean()
@@ -221,8 +222,11 @@ class AsymmetricLabelSmoothing(nn.Module):
         # Positive smoothing: 1 -> 1 - smoothing_pos * scale
         # Negative smoothing: 0 -> smoothing_neg * scale
         
-        smoothing_pos = self.smoothing_pos * self.smoothing_scale.unsqueeze(0)
-        smoothing_neg = self.smoothing_neg * self.smoothing_scale.unsqueeze(0)
+        # Move smoothing_scale to same device as targets
+        smoothing_scale = self.smoothing_scale.to(targets.device)
+        
+        smoothing_pos = self.smoothing_pos * smoothing_scale.unsqueeze(0)
+        smoothing_neg = self.smoothing_neg * smoothing_scale.unsqueeze(0)
         
         smoothed = targets * (1 - smoothing_pos) + (1 - targets) * smoothing_neg
         
@@ -270,8 +274,8 @@ class MultiLabelLDAMLoss(nn.Module):
             inputs: (B, C) logits
             targets: (B, C) multi-hot labels
         """
-        # Apply margins to positive class logits
-        margins = self.margins.unsqueeze(0)
+        # Apply margins to positive class logits (move to same device as inputs)
+        margins = self.margins.to(inputs.device).unsqueeze(0)
         
         # For positive samples, subtract margin (makes it harder to classify)
         # This forces the model to learn more discriminative features

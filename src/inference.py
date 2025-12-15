@@ -42,7 +42,7 @@ class Predictor:
             dropout=MODEL_CONFIG['dropout']
         )
         
-        checkpoint = load_checkpoint(model, None, self.model_path, device=self.device)
+        checkpoint = load_checkpoint(model, filepath=self.model_path, device=self.device)
         
         return model.to(self.device)
     
